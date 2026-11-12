@@ -7,10 +7,9 @@
 <textarea id="tubeCsv" rows="8" style="width:100%;box-sizing:border-box;font:14px monospace" placeholder="source,destination,volume_ul&#10;Co,tube1,100&#10;Co,tube2,500&#10;Ni,tube4,300"></textarea>
 <label>保存名 <input id="tubeCommandName" type="text" placeholder="例：tube30_multi_source.csv" autocomplete="off"></label>
 <button id="tubeSaveCommand" disabled>commandsに保存</button>
-<button id="tubePreview">CSVを読み取る</button>
 <div id="tubeSummary"></div><div id="tubeSources"></div>
 <p id="tubeTemplateNote"><small>CSVを読み取ると、ソースごとの必要量が表示されます。初期量を入力後、「CSV検証」でPCに計画を保存して検証します。</small></p>
-<button id="tubeVerify" disabled>CSV検証</button><button id="tubeStart" disabled>実機で開始</button>
+<div class="tube-actions"><button id="tubePreview">CSVを読み取る</button><button id="tubeVerify" disabled>CSV検証</button><button id="tubeStart" disabled>実機で開始</button></div>
 <p id="tubeMessage" role="status"></p>
 </section><section><h2>1 · 現在の状態</h2><p id="state">読み込み中</p><div id="prompt" hidden><p id="promptText"></p><button id="next">準備完了・続行（Enter）</button></div><button id="stop">停止を要求</button><p><small>停止要求は現在の移動・吸引・吐出の完了後に反映されます。即時の非常停止ではありません。ブラウザを閉じても処理は止まりません。</small></p><p id="message" role="status"></p></section><section><h2>2 · 実行ログ</h2><pre id="logs"></pre><p>結果CSVとログは既存のlogsフォルダに保存されます。中断後の自動再開は行いません。</p></section></main><script>
 const $=id=>document.getElementById(id);
