@@ -2,12 +2,12 @@
 
 GitHub Pages: 96ウェル版は `index.html`、30本試験管・複数ソース版は `testtube.html` です。
 
-96ウェル版に、CSVで複数ソースを30本の試験管へ分注する画面を追加しました。
+96ウェル版（index.html）と、30本の試験管へCSVで複数ソースを分注するページ（testtube.html）を分けています。
 
 ## 更新・操作
 
 1. `windows` 内の main.py、web_control.py、web_worker.py を、現在使っている分注フォルダにコピーします。以前のファイルは控えを残してください。既存config、commands、DLL、制御ライブラリを使用します。
-2. GitHub側の index.html を更新します。
+2. GitHub Pagesの試験管版は `testtube.html` を開きます。96ウェル版の `index.html` はそのまま使えます。
 3. PowerShellで `python web_control.py` を起動し、Webページへ接続キーを入力します。BATは不要です。
 4. 30本試験管の欄でCSVを読み込み、各ソースの吸引位置・容器登録と実際の初期量を入力します。同じ場所で手動交換する場合は同じ登録を選べます。
 5. 既存の試験管用計画CSVを選んでPCへ保存し、「CSVを検証」後に開始します。高さ・速度・ポートは選択した計画を引き継ぎます。
