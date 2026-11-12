@@ -30,6 +30,7 @@ if(s.includes('LIQUID SURFACE'))return 'チップ先端を液面に合わせて�
 async function action(name){if(busy)return;busy=true;try{let confirm=false;if(name==='start'){confirm=window.confirm('Dobot・Pipettyを接続し、周囲と容器を確認しましたか？実機との接続・校正を開始します。');if(!confirm)return;}await api('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:name,plan:activePlan,prompt_id:latest.prompt?.prompt_id,confirm})});$('message').textContent=name==='cancel'?'停止を要求しました。現在の操作の完了を待っています。':'';if(name==='check')verified=false;await poll();}catch(e){$('message').textContent=e.message;}finally{busy=false;}}
 function chooseTemplate(plans){let p=plans.find(n=>/tube30.*template|試験管/i.test(n));if(!p)p=plans.find(n=>/tube.*template/i.test(n));return p||'';}
 async function poll(){if(!connected)return;try{let s=await api('/api/state');$('connection').textContent='PCに接続済み';latest=s;
+$('tubeSaveCommand').disabled=!connected||!$('tubeCsv').value.trim();
 if(!activeTemplate)activeTemplate=chooseTemplate(s.tube_templates||[]);
 if(!s.running&&s.mode==='check'&&s.result?.success)verified=true;
 $('state').textContent=s.running?(s.cancel_requested?'停止待ち':s.prompt?'操作確認待ち':s.mode==='check'?'CSVを検証中':'実行中'):(s.result?(s.result.success?'正常終了':s.result.cancelled?'停止しました':'エラーで終了'):'待機中');
@@ -42,8 +43,8 @@ let log=$('logs'),bottom=log.scrollHeight-log.scrollTop-log.clientHeight<50;log.
 if(!wasRunning&&s.running){finishedSourceRuns=new Set();lastSoundPrompt=null;}
 if(s.mode==='run')for(const line of (s.logs||[])){if(/^Run \d+ finished; source theoretical remaining/.test(line)&&!finishedSourceRuns.has(line)){finishedSourceRuns.add(line);if(audioContext)beep();}}
 wasRunning=!!s.running;
-}catch(e){connected=false;$('connection').textContent='接続が切れました。キーとPC側の起動を確認して再接続してください。';$('message').textContent=e.message;['tubeVerify','tubeStart','next','stop'].forEach(id=>$(id).disabled=true);}}
-$('next').onclick=()=>action('continue');$('stop').onclick=()=>action('cancel');['tubeVerify','tubeStart','next','stop'].forEach(id=>$(id).disabled=true);
+}catch(e){connected=false;$('connection').textContent='接続が切れました。キーとPC側の起動を確認して再接続してください。';$('message').textContent=e.message;['tubeVerify','tubeStart','tubeSaveCommand','next','stop'].forEach(id=>$(id).disabled=true);}}
+$('next').onclick=()=>action('continue');$('stop').onclick=()=>action('cancel');['tubeVerify','tubeStart','tubeSaveCommand','next','stop'].forEach(id=>$(id).disabled=true);
 $('launchKey').onclick=()=>{unlockAudio();window.location.href='dobot://start';$('connection').textContent='PowerShellを起動します。表示されたキーを入力して「PCへ接続」を押してください。';};
 $('connect').onclick=async()=>{unlockAudio();token=$('key').value.trim();if(!token){$('connection').textContent='接続キーを入力してください。';return;}connected=true;activeTemplate='';activePlan='';verified=false;await poll();if(connected)await loadTubeConfig();};
 setInterval(poll,1000);
@@ -57,7 +58,7 @@ async function loadTubeCommand(name){if(!name)return;try{let data=await api('/ap
 $('tubePreview').onclick=()=>{unlockAudio();try{tubeItems=readTubeItems();activePlan='';verified=false;renderTube();$('tubeMessage').textContent='CSVを読み取りました。必要量を確認し、初期量を入力してください。';$('tubeVerify').disabled=!connected;$('tubeSaveCommand').disabled=!connected;}catch(e){tubeItems=[];activePlan='';verified=false;renderTube();$('tubeMessage').textContent=e.message;$('tubeSaveCommand').disabled=true;}};
 $('tubeCommandSelect').onchange=()=>loadTubeCommand($('tubeCommandSelect').value);
 $('tubeCommandName').value='';
-$('tubeCsv').oninput=()=>{activeCommandFile='';$('tubeCommandSelect').value='';tubeItems=[];activePlan='';verified=false;renderTube();$('tubeVerify').disabled=true;$('tubeStart').disabled=true;$('tubeMessage').textContent='編集後は「CSVを読み取る」を押してください。';};
+$('tubeCsv').oninput=()=>{activeCommandFile='';$('tubeCommandSelect').value='';tubeItems=[];activePlan='';verified=false;renderTube();$('tubeVerify').disabled=true;$('tubeStart').disabled=true;$('tubeSaveCommand').disabled=!connected||!$('tubeCsv').value.trim();$('tubeMessage').textContent='編集後は「CSVを読み取る」を押してください。';};
 $('tubeSaveCommand').disabled=true;
 $('tubeExample').onclick=()=>{$('tubeCsv').value='source,destination,volume_ul\nCo,tube1,100\nCo,tube2,500\nNi,tube4,300';$('tubeCsv').dispatchEvent(new Event('input'));};
 $('tubeSaveCommand').onclick=async()=>{
