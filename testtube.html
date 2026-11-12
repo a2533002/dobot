@@ -1,12 +1,12 @@
 <!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>試験管30本・複数ソース分注プランナー</title><style>body{font:16px/1.6 system-ui;margin:0;background:#f0f5f4;color:#173631}header{background:#153d36;color:white;padding:24px}main{max-width:1000px;margin:auto;padding:24px}section{padding:24px;border-radius:14px;background:white;margin-bottom:20px}h2{font-size:20px}button,select{padding:12px;border-radius:8px;border:1px solid #becfc6;margin:6px;font-size:15px}button{cursor:pointer;background:#e7f4ec}button:disabled{opacity:.4;cursor:default}#stop{background:#fff0e9;color:#a43d20}pre{background:#142e28;color:#daeee3;max-height:420px;overflow:auto;padding:18px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px}#prompt{background:#fff6d9}#message{color:#a43d20}small{color:#536c66}.plate{display:grid;grid-template-columns:28px repeat(12,minmax(32px,1fr));gap:4px;overflow:auto}.plate button{margin:0;padding:8px 0;border-radius:50%;font-size:11px;background:#f0f5f4}.plate button.selected{background:#17795b;color:white;border-color:#17795b}.plate span{text-align:center;font-size:12px}.inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:20px}input{padding:10px;border:1px solid #bdcfc7;border-radius:7px;max-width:100%}.inputs input:not([type=checkbox]){display:block;width:100%}.plate{min-width:470px}section:has(.plate){overflow:auto}</style><header><h1>Dobot · 試験管30本 分注プランナー</h1><div>Dobot Magician + Pipetty　｜　<a href="index.html" style="color:white">96ウェル版へ</a></div></header><main><section><h2>PCへ接続</h2><p>ロボット制御用のWindows PCでページを開いてください。接続キーを発行するとPowerShellが開き、キーが表示されます。</p><p><small>初回のみ、Windows側で起動リンクの登録が必要です。ページとweb_control.pyは同じPCで使います。</small></p><p><a href="windows/register_dobot_protocol.bat" download>Windows初回設定スクリプト</a>（3つの起動ファイルをweb_control.pyと同じフォルダに置き、BATを一度実行）</p><button id="launchKey">接続キーを発行</button><input id="key" type="password" autocomplete="off" placeholder="接続キー"><button id="connect">PCへ接続</button><p id="connection">未接続（試験管CSVの編集・確認は使えます）</p></section><section><h2>30本の試験管 · 複数ソース</h2>
 <p>ソースはCSVで最初に現れた順にまとめて分注します（同じ元素内はCSV順）。ソース交換時と元素ごとの分注完了時に音でお知らせします。交換を求められたら容器とチップを手で交換し、「準備完了・続行」を押してください。</p>
 <p>校正点：試験管1と30（XY）。ソースは Co, Ni, Cu, Ru, Rh, Pd, Ir, Ag, Pt, Au。すべて同じ位置の50 mL遠沈管を使います。</p>
-<label>PCフォルダの元素CSV <select id="tubeCommandSelect"><option value="">PC接続後に読み込み</option></select></label>
+<label>PCのcommandsフォルダ <select id="tubeCommandSelect"><option value="">PC接続後に読み込み</option></select></label>
 <button id="tubeExample">記入例</button>
 <p><small>列：source,destination,volume_ul。分注先は tube1〜tube30。液量はすべてµLです。</small></p>
 <textarea id="tubeCsv" rows="8" style="width:100%;box-sizing:border-box;font:14px monospace" placeholder="source,destination,volume_ul&#10;Co,tube1,100&#10;Co,tube2,500&#10;Ni,tube4,300"></textarea>
-<button id="tubeDownload">CSVを保存</button>
-<label>分注ファイルを選択 <input id="tubeFile" type="file" accept=".csv,text/csv"></label>
+<label>保存名 <input id="tubeCommandName" type="text" placeholder="例：tube30_multi_source.csv" autocomplete="off"></label>
+<button id="tubeSaveCommand" disabled>commandsに保存</button>
 <button id="tubePreview">CSVを読み取る</button>
 <div id="tubeSummary"></div><div id="tubeSources"></div>
 <p id="tubeTemplateNote"><small>CSVを読み取ると、ソースごとの必要量が表示されます。初期量を入力後、「CSV検証」でPCに計画を保存して検証します。</small></p>
@@ -54,13 +54,31 @@ function readTubeItems(){let rows=parseCsv($('tubeCsv').value);if(rows.length<2)
 function totals(){let t=new Map();for(let s of SOURCE_NAMES){let n=tubeItems.filter(x=>x.source===s).reduce((a,x)=>a+x.volume_ul,0);if(n)t.set(s,n);}return t;}
 function renderTube(){let old=new Map([...$('tubeSources').querySelectorAll('[data-source]')].map(el=>[el.dataset.source,el.querySelector('input[type=number]')?.value||'']));$('tubeSources').replaceChildren();if(!tubeItems.length){$('tubeSummary').textContent='';return;}let t=totals();$('tubeSummary').textContent=tubeItems.length+'行 ｜ '+t.size+'ソース';for(let [name,amount] of t){let spec=tubeConfig?.sources?.find(v=>v.source_id===name);let minimum=spec?Number(spec.min_volume_ul):1000,maximum=spec?Number(spec.max_volume_ul):35000,required=amount+minimum;let box=document.createElement('div');box.dataset.source=name;box.className='inputs';let title=document.createElement('strong');title.textContent=name+'：必要量 '+Number(amount.toFixed(6))+' µL（初期量 '+Number(required.toFixed(6))+' µL以上）';box.append(title);let initial=document.createElement('input');initial.type='number';initial.min=String(required);initial.max=String(maximum);initial.step='any';initial.placeholder='初期量（µL）';initial.value=old.get(name)||'';initial.required=true;let label=document.createElement('label');label.textContent='初期量（µL、上限 '+maximum+'）';label.append(initial);box.append(label);$('tubeSources').append(box);}}
 async function loadTubeConfig(){try{tubeConfig=await api('/api/tube_config');let select=$('tubeCommandSelect');select.replaceChildren(new Option('PCフォルダのCSVを選択',''));for(let name of (tubeConfig.command_files||[]))select.add(new Option(name,name));let preset=(tubeConfig.command_files||[]).find(n=>n==='tube30_multi_source.csv')||'';if(preset){select.value=preset;await loadTubeCommand(preset);}else renderTube();activeTemplate=chooseTemplate(tubeConfig.templates||[]);if(tubeConfig.destinations?.length!==30)$('tubeMessage').textContent='config/testtube.csv はtube1〜tube30の座標が必要です。';if((tubeConfig.sources||[]).length!==10)$('tubeMessage').textContent='config/sources.csv にCo〜Auの10元素を登録してください。';}catch(e){$('tubeMessage').textContent='PC側の更新が必要です：'+e.message;}}
-async function loadTubeCommand(name){if(!name)return;try{let data=await api('/api/tube_command?name='+encodeURIComponent(name));$('tubeCsv').value=data.content;activeCommandFile=data.name;tubeItems=[];activePlan='';verified=false;renderTube();$('tubeMessage').textContent=data.name+'を読み込みました。「CSVを読み取る」を押してください。';}catch(e){$('tubeMessage').textContent=e.message;}}
-$('tubePreview').onclick=()=>{unlockAudio();try{tubeItems=readTubeItems();activePlan='';verified=false;renderTube();$('tubeMessage').textContent='CSVを読み取りました。初期量を入力して「CSV検証」を押してください。';$('tubeVerify').disabled=!connected;}catch(e){tubeItems=[];activePlan='';verified=false;renderTube();$('tubeMessage').textContent=e.message;}};
+async function loadTubeCommand(name){if(!name)return;try{let data=await api('/api/tube_command?name='+encodeURIComponent(name));$('tubeCsv').value=data.content;$('tubeCommandName').value=data.name;activeCommandFile=data.name;tubeItems=[];activePlan='';verified=false;renderTube();$('tubeMessage').textContent=data.name+'を読み込みました。「CSVを読み取る」を押してください。';}catch(e){$('tubeMessage').textContent=e.message;}}
+$('tubePreview').onclick=()=>{unlockAudio();try{tubeItems=readTubeItems();activePlan='';verified=false;renderTube();$('tubeMessage').textContent='CSVを読み取りました。必要量を確認し、初期量を入力してください。';$('tubeVerify').disabled=!connected;$('tubeSaveCommand').disabled=!connected;}catch(e){tubeItems=[];activePlan='';verified=false;renderTube();$('tubeMessage').textContent=e.message;$('tubeSaveCommand').disabled=true;}};
 $('tubeCommandSelect').onchange=()=>loadTubeCommand($('tubeCommandSelect').value);
+$('tubeCommandName').value='';
 $('tubeCsv').oninput=()=>{activeCommandFile='';$('tubeCommandSelect').value='';tubeItems=[];activePlan='';verified=false;renderTube();$('tubeVerify').disabled=true;$('tubeStart').disabled=true;$('tubeMessage').textContent='編集後は「CSVを読み取る」を押してください。';};
-$('tubeFile').onchange=async()=>{try{let f=$('tubeFile').files[0];if(f)$('tubeCsv').value=await f.text();activeCommandFile='';$('tubeCommandSelect').value='';tubeItems=[];activePlan='';verified=false;renderTube();$('tubeMessage').textContent='ファイルをテキスト欄へ読み込みました。「CSVを読み取る」を押してください。';}catch(e){$('tubeMessage').textContent=e.message;}};
+$('tubeSaveCommand').disabled=true;
 $('tubeExample').onclick=()=>{$('tubeCsv').value='source,destination,volume_ul\nCo,tube1,100\nCo,tube2,500\nNi,tube4,300';$('tubeCsv').dispatchEvent(new Event('input'));};
-$('tubeDownload').onclick=()=>{let url=URL.createObjectURL(new Blob(['\uFEFF'+$('tubeCsv').value],{type:'text/csv;charset=utf-8'}));let a=document.createElement('a');a.href=url;a.download='tube30_multi_source.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+$('tubeSaveCommand').onclick=async()=>{
+ if(busy)return;busy=true;
+ try{
+  let items=readTubeItems();
+  let entered=$('tubeCommandName').value.trim();
+  if(!entered)throw Error('保存名を入力してください。');
+  let filename=entered.toLowerCase().endsWith('.csv')?entered:entered+'.csv';
+  let overwrite=(tubeConfig?.command_files||[]).includes(filename);
+  if(overwrite&&!window.confirm(filename+'は既にあります。上書きしますか？'))return;
+  let saved=await api('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save_tube_command',name:filename,items,overwrite})});
+  tubeItems=items;activeCommandFile=saved.name;activePlan='';verified=false;
+  tubeConfig=await api('/api/tube_config');
+  let select=$('tubeCommandSelect');select.replaceChildren(new Option('PCのcommandsフォルダから選択',''));
+  for(let name of (tubeConfig.command_files||[]))select.add(new Option(name,name));
+  select.value=saved.name;$('tubeCommandName').value=saved.name;renderTube();
+  $('tubeMessage').textContent=saved.name+'をPCのcommandsフォルダに保存しました。';
+ }catch(e){$('tubeMessage').textContent=e.message;}finally{busy=false;}
+};
 $('tubeVerify').onclick=async()=>{
  if(busy)return;busy=true;
  try{
