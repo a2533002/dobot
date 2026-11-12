@@ -39,7 +39,7 @@ $('tubeVerify').disabled=s.running||!tubeItems.length||!connected;
 $('tubeStart').disabled=s.running||!activePlan||!verified;
 $('stop').disabled=!s.running||s.cancel_requested;
 let log=$('logs'),bottom=log.scrollHeight-log.scrollTop-log.clientHeight<50;log.textContent=(s.logs||[]).join('\n');if(bottom)log.scrollTop=log.scrollHeight;
-if(wasRunning&&!s.running&&s.result?.success){let finishId=s.result.id||s.result.completed_at||'finished';if(lastFinishedId!==finishId){lastFinishedId=finishId;if(audioContext)beep();}}
+if(!wasRunning&&s.running)lastFinishedId=null;if(wasRunning&&!s.running&&s.result?.success&&lastFinishedId===null){lastFinishedId=s.result.id||s.result.completed_at||'finished';if(audioContext)beep();}
 wasRunning=!!s.running;
 }catch(e){connected=false;$('connection').textContent='接続が切れました。キーとPC側の起動を確認して再接続してください。';$('message').textContent=e.message;['tubeVerify','tubeStart','next','stop'].forEach(id=>$(id).disabled=true);}}
 $('next').onclick=()=>action('continue');$('stop').onclick=()=>action('cancel');['tubeVerify','tubeStart','next','stop'].forEach(id=>$(id).disabled=true);
